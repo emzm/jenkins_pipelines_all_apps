@@ -1,45 +1,53 @@
 pipeline {
     agent any
-//     tools {
-//       maven 'maven'
-//   }
+    
     stages {
-
-        stage('Build') {
+        stage('Clone Repository') {
             steps {
-               // sh 'mvn -version'
-                sh 'mvn clean install'
-                sh 'mvn clean package'
-               // sh 'mvn clean package -Dmaven.test.failure.ignore=true'
-            }
-        }
-        stage('Test') {
-            steps {
-                sh 'mvn test'
-                //sh 'mvn test -Dmaven.test.failure.ignore=true'
+                // Clone the repository
+                git 'https://github.com/emzm/jenkins_pipelines_all_apps.git'
             }
         }
         
-        stage('Publishing Junit Tests report ') {
+        stage('Build') {
             steps {
-                junit 'target/surefire-reports/*.xml'
+                // Navigate to the directory containing pom.xml
+                dir('springboot-app') {
+                    // Run Maven build
+                    sh '/opt/maven/bin/mvn clean install'
+                }
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                // Run Maven tests
+                dir('springboot-app') {
+                    sh '/opt/maven/bin/mvn test'
+                }
+            }
+        }
+        
+        stage('Publishing Junit Tests report') {
+            steps {
+                junit 'springboot-app/target/surefire-reports/*.xml'
             }   
         }
+        
         stage('Publishing Code Coverage') {
             steps {
                 jacoco()
             }   
-        }      
+        }
         
         stage('Image push to local Docker registry') {
             steps {
                 sh 'docker version'
                 sh 'docker build -t dockerregistry.com/springbootjacoco:0.0.1 -f Dockerfile .'
-                withDockerRegistry(credentialsId: 'docker-cred', url: 'https://dockerregistry.com/v2/') 
-                 {
-                 sh 'docker push dockerregistry.com/springbootjacoco:0.0.1'
-                 }
-             }
-         }
+                withDockerRegistry(credentialsId: 'docker-cred', url: 'https://dockerregistry.com/v2/') {
+                    sh 'docker push dockerregistry.com/springbootjacoco:0.0.1'
+                }
+            }
+        }
     }
 }
